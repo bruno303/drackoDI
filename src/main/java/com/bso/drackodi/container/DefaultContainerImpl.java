@@ -2,7 +2,6 @@ package com.bso.drackodi.container;
 
 import com.bso.drackodi.scope.Scope;
 
-import java.lang.reflect.InvocationTargetException;
 import java.util.EnumMap;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -20,6 +19,7 @@ public class DefaultContainerImpl implements Container {
         this.scopeMapClasses = new EnumMap<>(Scope.class);
         this.scopeMapClasses.putIfAbsent(transients.getScope(), transients);
         this.scopeMapClasses.putIfAbsent(singletons.getScope(), singletons);
+        this.doRegister(this.getClass(), Scope.DEFAULT, this);
     }
 
     @Override
@@ -67,16 +67,6 @@ public class DefaultContainerImpl implements Container {
         return resultsOpt.get();
     }
 
-    @SuppressWarnings("unchecked")
-    private <T> T createObject(Class<?> implementation) {
-        try {
-            return (T)implementation.getDeclaredConstructor().newInstance();
-        } catch (InstantiationException | NoSuchMethodException | InvocationTargetException | IllegalAccessException e) {
-            e.printStackTrace();
-            return null;
-        }
-    }
-
     private void doRegister(Class<?> clazz, Scope scope) {
 
         ScopeMapClass scopeMapClass = scopeMapClasses.get(scope);
@@ -85,12 +75,25 @@ public class DefaultContainerImpl implements Container {
             return;
         }
 
-        Object object = createObject(clazz);
-
         for (var iface : clazz.getInterfaces()) {
-            scopeMapClass.putIfAbsent(iface, object);
+            scopeMapClass.putIfAbsent(iface, clazz);
         }
 
-        scopeMapClass.putIfAbsent(clazz, object);
+        scopeMapClass.putIfAbsent(clazz);
+    }
+
+    private <T> void doRegister(Class<?> clazz, Scope scope, T implementation) {
+
+        ScopeMapClass scopeMapClass = scopeMapClasses.get(scope);
+
+        if (scopeMapClass.contains(clazz)) {
+            return;
+        }
+
+        for (var iface : clazz.getInterfaces()) {
+            scopeMapClass.putIfAbsent(iface, implementation);
+        }
+
+        scopeMapClass.putIfAbsent(clazz, implementation);
     }
 }

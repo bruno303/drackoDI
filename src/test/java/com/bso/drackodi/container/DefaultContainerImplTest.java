@@ -122,4 +122,12 @@ class DefaultContainerImplTest {
         DummyInterface implementation2 = container.getBean(DummyInterface.class);
         assertThat(implementation).isNotSameAs(implementation2);
     }
+
+    @Test
+    void testContainerRegisteringItselfAsSingletonWhenCreated() {
+        Container container1 = container.getBean(Container.class);
+        DefaultContainerImpl container2 = container.getBean(DefaultContainerImpl.class);
+        assertThat(container1).isSameAs(container2);
+        assertThat(container1.getBean(Container.class)).isSameAs(container1);
+    }
 }

@@ -1,13 +1,16 @@
 package com.bso.drackodi.container;
 
+import com.bso.drackodi.model.exceptions.ContainerAlreadyBuildedException;
+import com.bso.drackodi.provider.BeanProvider;
+import com.bso.drackodi.provider.DefaultBeanProviderImpl;
 import com.bso.drackodi.scope.Scope;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
-import java.util.Set;
-
+import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class DefaultContainerImplTest {
 
@@ -25,8 +28,9 @@ class DefaultContainerImplTest {
     @Test
     void testGetImplementationByInterface() {
         container.register(DummyImplementation.class, Scope.TRANSIENT);
+        BeanProvider beanProvider = container.build();
 
-        DummyInterface dummyInterface = container.getBean(DummyInterface.class);
+        DummyInterface dummyInterface = beanProvider.getBean(DummyInterface.class);
         assertThat(dummyInterface)
                 .isNotNull()
                 .isExactlyInstanceOf(DummyImplementation.class);
@@ -36,8 +40,9 @@ class DefaultContainerImplTest {
     void testRegisterSameClassMultipleTimes() {
         container.register(DummyImplementation.class, Scope.TRANSIENT);
         container.register(DummyImplementation.class, Scope.TRANSIENT);
+        BeanProvider beanProvider = container.build();
 
-        Set<DummyInterface> dummys = container.getBeans(DummyInterface.class);
+        List<DummyInterface> dummys = beanProvider.getBeans(DummyInterface.class);
         assertThat(dummys)
                 .isNotNull()
                 .hasSize(1);
@@ -47,8 +52,9 @@ class DefaultContainerImplTest {
     void testGetSingleImplementationByInterfaceOfMultipleCandidates() {
         container.register(DummyImplementation.class, Scope.TRANSIENT);
         container.register(DummyImplementation2.class, Scope.TRANSIENT);
+        BeanProvider beanProvider = container.build();
 
-        DummyInterface dummyInterface = container.getBean(DummyInterface.class);
+        DummyInterface dummyInterface = beanProvider.getBean(DummyInterface.class);
         assertThat(dummyInterface)
                 .isNotNull()
                 .isInstanceOfAny(DummyImplementation.class, DummyImplementation2.class);
@@ -58,8 +64,9 @@ class DefaultContainerImplTest {
     void testGetImplementationByImplementationItself() {
         container.register(DummyImplementation.class, Scope.TRANSIENT);
         container.register(DummyImplementation2.class, Scope.TRANSIENT);
+        BeanProvider beanProvider = container.build();
 
-        DummyInterface dummyInterface = container.getBean(DummyImplementation.class);
+        DummyInterface dummyInterface = beanProvider.getBean(DummyImplementation.class);
         assertThat(dummyInterface)
                 .isNotNull()
                 .isExactlyInstanceOf(DummyImplementation.class);
@@ -71,8 +78,9 @@ class DefaultContainerImplTest {
         container.register(DummyImplementation2.class, Scope.TRANSIENT);
         container.register(DummyImplementation.class, Scope.TRANSIENT);
         container.register(DummyImplementation2.class, Scope.TRANSIENT);
+        BeanProvider beanProvider = container.build();
 
-        Set<DummyInterface> dummyInterfaces = container.getBeans(DummyInterface.class);
+        List<DummyInterface> dummyInterfaces = beanProvider.getBeans(DummyInterface.class);
         assertThat(dummyInterfaces)
                 .isNotNull()
                 .hasSize(2);
@@ -88,9 +96,10 @@ class DefaultContainerImplTest {
         container.register(DummyImplementation.class);
         container.register(DummyImplementation.class);
         container.register(DummyImplementation.class);
+        BeanProvider beanProvider = container.build();
 
-        DummyInterface dummy1 = container.getBean(DummyInterface.class);
-        DummyInterface dummy2 = container.getBean(DummyInterface.class);
+        DummyInterface dummy1 = beanProvider.getBean(DummyInterface.class);
+        DummyInterface dummy2 = beanProvider.getBean(DummyInterface.class);
         assertThat(dummy1)
                 .isNotNull()
                 .isEqualTo(dummy2);
@@ -102,8 +111,9 @@ class DefaultContainerImplTest {
         container.register(DummyImplementation2.class);
         container.register(DummyImplementation.class);
         container.register(DummyImplementation2.class);
+        BeanProvider beanProvider = container.build();
 
-        Set<DummyInterface> implementations = container.getBeans(DummyInterface.class);
+        List<DummyInterface> implementations = beanProvider.getBeans(DummyInterface.class);
         assertThat(implementations)
                 .isNotNull()
                 .hasSize(2);
@@ -117,17 +127,38 @@ class DefaultContainerImplTest {
     @Test
     void testTransientBeanReturnDifferentObjectOnEachCall() {
         container.register(DummyImplementation.class, Scope.TRANSIENT);
+        BeanProvider beanProvider = container.build();
 
-        DummyInterface implementation = container.getBean(DummyInterface.class);
-        DummyInterface implementation2 = container.getBean(DummyInterface.class);
+        DummyInterface implementation = beanProvider.getBean(DummyInterface.class);
+        DummyInterface implementation2 = beanProvider.getBean(DummyInterface.class);
         assertThat(implementation).isNotSameAs(implementation2);
     }
 
     @Test
     void testContainerRegisteringItselfAsSingletonWhenCreated() {
-        Container container1 = container.getBean(Container.class);
-        DefaultContainerImpl container2 = container.getBean(DefaultContainerImpl.class);
-        assertThat(container1).isSameAs(container2);
-        assertThat(container1.getBean(Container.class)).isSameAs(container1);
+    	BeanProvider beanProvider = container.build();
+    	
+    	BeanProvider beanProvider2 = beanProvider.getBean(BeanProvider.class);
+    	DefaultBeanProviderImpl beanProvider3 = beanProvider.getBean(DefaultBeanProviderImpl.class);
+        assertThat(beanProvider).isSameAs(beanProvider2);
+        assertThat(beanProvider.getBean(BeanProvider.class)).isSameAs(beanProvider3);
+    }
+    
+    @Test
+    void testRegisterAfterBuildProvider() {
+        container.register(DummyImplementation.class, Scope.TRANSIENT);
+        container.build();
+        
+        assertThrows(ContainerAlreadyBuildedException.class,
+        		() -> container.register(DummyImplementation.class, Scope.TRANSIENT));
+    }
+    
+    @Test
+    void testBuildAgainAfterBuildProvider() {
+        container.register(DummyImplementation.class, Scope.TRANSIENT);
+        container.build();
+        
+        assertThrows(ContainerAlreadyBuildedException.class,
+        		() -> container.build());
     }
 }

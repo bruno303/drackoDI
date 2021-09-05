@@ -1,26 +1,20 @@
 package com.bso.drackodi.container;
 
-import com.bso.drackodi.scope.Scope;
+import java.util.concurrent.atomic.AtomicBoolean;
 
-import java.util.EnumMap;
-import java.util.Map;
-import java.util.NoSuchElementException;
-import java.util.Optional;
-import java.util.Set;
-import java.util.stream.Collectors;
+import com.bso.drackodi.model.ClassInfo;
+import com.bso.drackodi.model.exceptions.ClassIsInterfaceException;
+import com.bso.drackodi.model.exceptions.ContainerAlreadyBuildedException;
+import com.bso.drackodi.object.ObjectFactory;
+import com.bso.drackodi.provider.BeanProvider;
+import com.bso.drackodi.provider.DefaultBeanProviderImpl;
+import com.bso.drackodi.scope.Scope;
 
 public class DefaultContainerImpl implements Container {
 
-    private final Map<Scope, ScopeMapClass> scopeMapClasses;
-    private final ScopeMapClass transients = new ScopeMapClass(Scope.TRANSIENT);
-    private final ScopeMapClass singletons = new ScopeMapClass(Scope.SINGLETON);
-
-    public DefaultContainerImpl() {
-        this.scopeMapClasses = new EnumMap<>(Scope.class);
-        this.scopeMapClasses.putIfAbsent(transients.getScope(), transients);
-        this.scopeMapClasses.putIfAbsent(singletons.getScope(), singletons);
-        this.doRegister(this.getClass(), Scope.DEFAULT, this);
-    }
+    private final ScopeMapClass scopeMapClass = new ScopeMapClass();
+    private final ObjectFactory objectFactory = new ObjectFactory();
+    private AtomicBoolean builded = new AtomicBoolean(false);
 
     @Override
     public synchronized void register(Class<?> object) {
@@ -32,68 +26,33 @@ public class DefaultContainerImpl implements Container {
         doRegister(object, scope);
     }
 
-    @Override
-    public synchronized <T> T getBean(Class<T> object) {
-        Optional<Set<T>> resultsOpt = getImplementations(object);
-
-        if (resultsOpt.isEmpty()) {
-            throw new NoSuchElementException("Element with class '" + object.getName() + "' not found");
-        }
-
-        return resultsOpt.get().stream().findFirst().orElseThrow();
-    }
-
-    @SuppressWarnings("unchecked")
-    private <T> Optional<Set<T>> getImplementations(Class<T> object) {
-        if (transients.contains(object)) {
-            return Optional.of(transients.get(object).stream().map(o -> (T)o).collect(Collectors.toSet()));
-        }
-
-        if (singletons.contains(object)) {
-            return Optional.of(singletons.get(object).stream().map(o -> (T)o).collect(Collectors.toSet()));
-        }
-
-        return Optional.empty();
-    }
-
-    @Override
-    public <T> Set<T> getBeans(Class<T> object) {
-        Optional<Set<T>> resultsOpt = getImplementations(object);
-
-        if (resultsOpt.isEmpty()) {
-            throw new NoSuchElementException("Element with class '" + object.getName() + "' not found");
-        }
-
-        return resultsOpt.get();
-    }
-
     private void doRegister(Class<?> clazz, Scope scope) {
-
-        ScopeMapClass scopeMapClass = scopeMapClasses.get(scope);
-
-        if (scopeMapClass.contains(clazz)) {
-            return;
-        }
-
-        for (var iface : clazz.getInterfaces()) {
-            scopeMapClass.putIfAbsent(iface, clazz);
-        }
-
-        scopeMapClass.putIfAbsent(clazz);
+    	
+    	validateIfNotBuildedYet();
+    	ClassIsInterfaceException.throwIf(clazz.isInterface(), clazz);
+        
+        scopeMapClass.putIfAbsent(clazz, scope);
     }
 
-    private <T> void doRegister(Class<?> clazz, Scope scope, T implementation) {
-
-        ScopeMapClass scopeMapClass = scopeMapClasses.get(scope);
-
-        if (scopeMapClass.contains(clazz)) {
-            return;
-        }
-
-        for (var iface : clazz.getInterfaces()) {
-            scopeMapClass.putIfAbsent(iface, implementation);
-        }
-
-        scopeMapClass.putIfAbsent(clazz, implementation);
-    }
+	@Override
+	public synchronized BeanProvider build() {
+		validateIfNotBuildedYet();
+		
+		for (ClassInfo classInfo : scopeMapClass.getMap().values()) {
+			
+			if (!classInfo.hasImplementationCreated()) {
+				Object implementation = objectFactory.createObject(classInfo.getClazz(), scopeMapClass.getMap());
+				
+				classInfo.setImplementation(implementation);
+			}
+		}
+		
+		builded.set(true);
+		
+		return new DefaultBeanProviderImpl(scopeMapClass.getMap(), objectFactory);
+	}
+	
+	private void validateIfNotBuildedYet() {
+		ContainerAlreadyBuildedException.throwIf(builded.get());
+	}
 }

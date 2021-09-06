@@ -3,6 +3,8 @@ package com.bso.drackodi.container;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import com.bso.drackodi.provider.BeanProvider;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 class DefaultContainerImplConstructorsWithOneParameterTest {
@@ -71,8 +73,25 @@ class DefaultContainerImplConstructorsWithOneParameterTest {
     void testCreateObjectWithConstructorWithOneParameter() {
         container.register(DummyDependency.class);
         container.register(DummyImplementation.class);
+        BeanProvider beanProvider = container.build();
 
-        DummyInterface dummyInterface = container.getBean(DummyInterface.class);
+        DummyInterface dummyInterface = beanProvider.getBean(DummyInterface.class);
+        assertThat(dummyInterface)
+                .isNotNull()
+                .isExactlyInstanceOf(DummyImplementation.class);
+
+        assertThat(((DummyImplementation)dummyInterface).getDependency())
+                .isNotNull()
+                .isExactlyInstanceOf(DummyDependency.class);
+    }
+    
+    @Test
+    void testCreateObjectWithConstructorWithOneParameterRegisteredInDifferentOrder() {
+    	container.register(DummyImplementation.class);
+        container.register(DummyDependency.class);
+        BeanProvider beanProvider = container.build();
+
+        DummyInterface dummyInterface = beanProvider.getBean(DummyInterface.class);
         assertThat(dummyInterface)
                 .isNotNull()
                 .isExactlyInstanceOf(DummyImplementation.class);
@@ -88,8 +107,9 @@ class DefaultContainerImplConstructorsWithOneParameterTest {
         container.register(DummyDependency2.class);
         container.register(DummyDependency3.class);
         container.register(DummyImplementation2.class);
+        BeanProvider beanProvider = container.build();
 
-        DummyInterface dummyInterface = container.getBean(DummyInterface.class);
+        DummyInterface dummyInterface = beanProvider.getBean(DummyInterface.class);
         assertThat(dummyInterface)
                 .isNotNull()
                 .isExactlyInstanceOf(DummyImplementation2.class);

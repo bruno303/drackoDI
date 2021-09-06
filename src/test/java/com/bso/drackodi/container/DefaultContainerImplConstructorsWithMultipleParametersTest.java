@@ -3,6 +3,8 @@ package com.bso.drackodi.container;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import com.bso.drackodi.provider.BeanProvider;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 class DefaultContainerImplConstructorsWithMultipleParametersTest {
@@ -71,8 +73,9 @@ class DefaultContainerImplConstructorsWithMultipleParametersTest {
         container.register(DummyDependency.class);
         container.register(DummyDependency2.class);
         container.register(DummyImplementation.class);
+        BeanProvider beanProvider = container.build();
 
-        DummyInterface dummyInterface = container.getBean(DummyInterface.class);
+        DummyInterface dummyInterface = beanProvider.getBean(DummyInterface.class);
         assertThat(dummyInterface)
                 .isNotNull()
                 .isExactlyInstanceOf(DummyImplementation.class);
@@ -94,8 +97,39 @@ class DefaultContainerImplConstructorsWithMultipleParametersTest {
         container.register(DummyDependency2.class);
         container.register(DummyDependency3.class);
         container.register(DummyImplementation2.class);
+        BeanProvider beanProvider = container.build();
 
-        DummyInterface dummyInterface = container.getBean(DummyInterface.class);
+        DummyInterface dummyInterface = beanProvider.getBean(DummyInterface.class);
+        assertThat(dummyInterface)
+                .isNotNull()
+                .isExactlyInstanceOf(DummyImplementation2.class);
+
+        DummyImplementation2 implementation = (DummyImplementation2) dummyInterface;
+        DummyDependency2 dependency2 = implementation.getDependency2();
+
+        assertThat(dependency2)
+                .isNotNull()
+                .isExactlyInstanceOf(DummyDependency2.class);
+
+        DummyDependency3 dependency3 = implementation.getDependency3();
+        assertThat(dependency3)
+                .isNotNull()
+                .isExactlyInstanceOf(DummyDependency3.class);
+
+        DummyDependency2 dependency2From3 = dependency3.getDependency();
+        assertThat(dependency2From3)
+                .isNotNull()
+                .isSameAs(dependency2);
+    }
+    
+    @Test
+    void testCreateObjectWithConstructorWithTwoDependentParametersRegisteredInDifferentOrder() {
+    	container.register(DummyImplementation2.class);
+    	container.register(DummyDependency3.class);
+        container.register(DummyDependency2.class);
+        BeanProvider beanProvider = container.build();
+
+        DummyInterface dummyInterface = beanProvider.getBean(DummyInterface.class);
         assertThat(dummyInterface)
                 .isNotNull()
                 .isExactlyInstanceOf(DummyImplementation2.class);

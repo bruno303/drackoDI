@@ -1,51 +1,48 @@
 package com.bso.drackodi.provider;
 
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import com.bso.drackodi.model.ClassInfo;
+import com.bso.drackodi.model.exceptions.BeanNotFoundException;
+import com.bso.drackodi.scope.Scope;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.NoSuchElementException;
-
-import com.bso.drackodi.model.ClassInfo;
-import com.bso.drackodi.object.ObjectFactory;
-import com.bso.drackodi.scope.Scope;
-
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class DefaultBeanProviderImplTest {
 
     private BeanProvider beanProvider;
-    private ObjectFactory objectFactory = Mockito.mock(ObjectFactory.class);
-    private Map<Class<?>, ClassInfo> classInfoMap = new HashMap<>();
+    private final Map<Class<?>, ClassInfo> classInfoMap = new HashMap<>();
 
-    public static class Dummy { }
+    public static class DummyWithNullImplementation { }
+    public static class DummyNotRegistered { }
 
     @BeforeEach
     public void setup() {
-        beanProvider = new DefaultBeanProviderImpl(classInfoMap, objectFactory);
-        classInfoMap.put(Dummy.class, new ClassInfo(Dummy.class, Scope.DEFAULT, Dummy.class.getInterfaces()));
+        classInfoMap.put(DummyWithNullImplementation.class,
+                new ClassInfo(DummyWithNullImplementation.class, Scope.DEFAULT, DummyWithNullImplementation.class.getInterfaces(), bp -> null));
+        beanProvider = new DefaultBeanProviderImpl(classInfoMap);
     }
     
     @Test
-    void testGetBeanNotExistent() {
-        assertThrows(NoSuchElementException.class, () -> beanProvider.getBean(Dummy.class));
+    void testGetBeanNotRegistered() {
+        assertThrows(BeanNotFoundException.class, () -> beanProvider.getBean(DummyNotRegistered.class));
     }
 
     @Test
     void testGetBeanExistentWithoutImplementationCreated() {
-        assertThrows(NoSuchElementException.class, () -> beanProvider.getBean(Dummy.class));
+        assertThrows(BeanNotFoundException.class, () -> beanProvider.getBean(DummyWithNullImplementation.class));
     }
 
     @Test
     void testGetBeanExistentWithImplementationCreated() {
-        ClassInfo classInfo = classInfoMap.get(Dummy.class);
-        classInfo.setImplementation(new Dummy());
+        ClassInfo classInfo = classInfoMap.get(DummyWithNullImplementation.class);
+        classInfo.setImplementation(new DummyWithNullImplementation());
 
-        Dummy bean = beanProvider.getBean(Dummy.class);
+        DummyWithNullImplementation bean = beanProvider.getBean(DummyWithNullImplementation.class);
         assertThat(bean).isNotNull();
     }
 }

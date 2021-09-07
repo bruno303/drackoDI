@@ -18,9 +18,10 @@ public class ClassInfo {
 	private final Scope scope;
 	private final List<Class<?>> interfaces;
 	private Object implementation;
+	private final RegisterFunction registerFunction;
 	
-	public ClassInfo(Class<?> clazz, Scope scope, Class<?>[] interfaces) {
-		this(clazz, scope, Arrays.stream(interfaces).collect(Collectors.toList()));
+	public ClassInfo(Class<?> clazz, Scope scope, Class<?>[] interfaces, RegisterFunction registerFunction) {
+		this(clazz, scope, Arrays.stream(interfaces).collect(Collectors.toList()), registerFunction);
 	}
 	
 	public void setImplementation(Object implementation) {
@@ -38,5 +39,13 @@ public class ClassInfo {
 	
 	public boolean isClassOrInterfaceOf(Class<?> clazz) {
 		return this.clazz.equals(clazz) || this.interfaces.stream().anyMatch(i -> i.equals(clazz));
+	}
+
+	public boolean hasCustomCreation() {
+		return this.registerFunction != null;
+	}
+
+	public boolean needCreateImplementation() {
+		return this.scope == Scope.TRANSIENT || !this.hasImplementationCreated();
 	}
 }

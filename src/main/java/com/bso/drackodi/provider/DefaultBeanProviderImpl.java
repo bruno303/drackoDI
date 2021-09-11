@@ -1,48 +1,41 @@
 package com.bso.drackodi.provider;
 
+import com.bso.drackodi.model.ClassInfo;
+import com.bso.drackodi.model.exceptions.BeanNotFoundException;
+import com.bso.drackodi.scope.Scope;
+
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import com.bso.drackodi.model.ClassInfo;
-import com.bso.drackodi.object.ObjectFactory;
-import com.bso.drackodi.scope.Scope;
-
 public class DefaultBeanProviderImpl implements BeanProvider {
 	
 	private final Map<Class<?>, ClassInfo> classInfoMap;
-	private final ObjectFactory objectFactory;
 	
-	public DefaultBeanProviderImpl(Map<Class<?>, ClassInfo> classInfoMap, ObjectFactory objectFactory) {
+	public DefaultBeanProviderImpl(Map<Class<?>, ClassInfo> classInfoMap) {
 		this.classInfoMap = classInfoMap;
-		this.objectFactory = objectFactory;
+		register();
+	}
+
+	private void register() {
+		for (ClassInfo classInfo : classInfoMap.values()) {
+
+			if (!classInfo.hasImplementationCreated()) {
+				classInfo.setImplementation(createObject(classInfo));
+			}
+		}
+
 		registerProviderItself();
 	}
 
 	@Override
-	@SuppressWarnings("unchecked")
 	public <T> T getBean(Class<T> clazz) {
-		List<ClassInfo> classInfosForReturn = classInfoMap
-				.values()
-				.stream()
-				.filter(ci -> ci.isClassOrInterfaceOf(clazz))
-				.filter(ClassInfo::hasImplementationCreated)
-				.collect(Collectors.toList());
-		
-		synchronized (this) {
-			classInfosForReturn.forEach(ci -> {
-				if (ci.getScope() == Scope.TRANSIENT) {
-					ci.setImplementation(objectFactory.createObject(ci.getClazz(), classInfoMap));
-				}
-			});
-		}
-		
-		return classInfosForReturn
-				.stream()
-				.map(ClassInfo::getImplementation)
-				.map(o -> (T)o)
-				.findAny()
-				.orElseThrow();
+		List<T> beans = getBeans(clazz);
+
+		return beans.stream().findAny().orElseThrow();
 	}
 
 	@Override
@@ -52,28 +45,72 @@ public class DefaultBeanProviderImpl implements BeanProvider {
 				.values()
 				.stream()
 				.filter(ci -> ci.isClassOrInterfaceOf(clazz))
-				.filter(ClassInfo::hasImplementationCreated)
 				.collect(Collectors.toList());
 		
 		synchronized (this) {
 			classInfosForReturn.forEach(ci -> {
-				if (ci.getScope() == Scope.TRANSIENT) {
-					ci.setImplementation(objectFactory.createObject(ci.getClazz(), classInfoMap));
+				if (ci.needCreateImplementation()) {
+					ci.setImplementation(createObject(ci));
 				}
 			});
 		}
-		
-		return classInfosForReturn
+
+		var objectsToReturn = classInfosForReturn
 				.stream()
+				.filter(ClassInfo::hasImplementationCreated)
 				.map(ClassInfo::getImplementation)
-				.map(o -> (T)o).collect(Collectors.toList());
+				.map(o -> (T)o)
+				.collect(Collectors.toList());
+
+		BeanNotFoundException.throwIf(objectsToReturn.isEmpty(), clazz);
+
+		return objectsToReturn;
 	}
 
 	private void registerProviderItself() {
 		
-		var classInfo = new ClassInfo(this.getClass(), Scope.SINGLETON, this.getClass().getInterfaces());
+		var classInfo = new ClassInfo(this.getClass(), Scope.SINGLETON,
+				this.getClass().getInterfaces(), null);
 		classInfo.setImplementation(this);
 		
 		classInfoMap.putIfAbsent(getClass(), classInfo);
+	}
+
+	private <T> T createObject(ClassInfo classInfo) {
+		if (classInfo.hasCustomCreation()) {
+			return createObjectUsingCustomFunction(classInfo);
+		}
+
+		return createObjectUsingConstructor(classInfo);
+	}
+
+	@SuppressWarnings("unchecked")
+	private <T> T createObjectUsingCustomFunction(ClassInfo classInfo) {
+		return (T)classInfo.getRegisterFunction().createObject(this);
+	}
+
+	@SuppressWarnings("unchecked")
+	private <T> T createObjectUsingConstructor(ClassInfo classInfo) {
+		try {
+			Class<?> implementation = classInfo.getClazz();
+			Constructor<?>[] constructors = implementation.getConstructors();
+
+			if (constructors.length != 1) {
+				throw new IllegalStateException("Was expected only 1 constructor for class '" + implementation.getName() + "' but " + constructors.length + " was found");
+			}
+
+			Constructor<?> constructor = constructors[0];
+			Class<?>[] parameterTypes = constructor.getParameterTypes();
+
+			Object[] objects = Arrays
+					.stream(parameterTypes)
+					.map(this::getBean)
+					.toArray();
+
+			return (T)constructor.newInstance(objects);
+		} catch (InstantiationException | InvocationTargetException | IllegalAccessException e) {
+			e.printStackTrace();
+			return null;
+		}
 	}
 }

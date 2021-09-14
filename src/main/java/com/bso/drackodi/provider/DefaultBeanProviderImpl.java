@@ -1,6 +1,8 @@
 package com.bso.drackodi.provider;
 
+import com.bso.drackodi.container.ScopeMapClass;
 import com.bso.drackodi.model.ClassInfo;
+import com.bso.drackodi.model.OrderedObject;
 import com.bso.drackodi.model.exceptions.BeanNotFoundException;
 import com.bso.drackodi.scope.Scope;
 
@@ -8,20 +10,19 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 public class DefaultBeanProviderImpl implements BeanProvider {
 	
-	private final Map<Class<?>, ClassInfo> classInfoMap;
-	
-	public DefaultBeanProviderImpl(Map<Class<?>, ClassInfo> classInfoMap) {
-		this.classInfoMap = classInfoMap;
+	private final ScopeMapClass classManager;
+
+	public DefaultBeanProviderImpl(ScopeMapClass classManager) {
+		this.classManager = classManager;
 		register();
 	}
 
 	private void register() {
-		for (ClassInfo classInfo : classInfoMap.values()) {
+		for (ClassInfo classInfo : classManager.getClassList()) {
 
 			if (!classInfo.hasImplementationCreated()) {
 				classInfo.setImplementation(createObject(classInfo));
@@ -32,20 +33,58 @@ public class DefaultBeanProviderImpl implements BeanProvider {
 	}
 
 	@Override
-	public <T> T getBean(Class<T> clazz) {
-		List<T> beans = getBeans(clazz);
+	@SuppressWarnings("unchecked")
+	public <T> T getBean(Class<T> clazz, String name) {
+		List<OrderedObject> orderedBeans = doGetBeans(clazz, name);
 
-		return beans.stream().findAny().orElseThrow();
+		return orderedBeans
+				.stream()
+				.map(OrderedObject::getImplementation)
+				.map(o -> (T)o)
+				.findAny()
+				.orElseThrow();
 	}
 
 	@Override
 	@SuppressWarnings("unchecked")
-	public <T> List<T> getBeans(Class<T> clazz) {
-		List<ClassInfo> classInfosForReturn = classInfoMap
-				.values()
+	public <T> T getBean(Class<T> clazz) {
+		List<OrderedObject> orderedBeans = doGetBeans(clazz);
+
+		return orderedBeans
+				.stream()
+				.map(OrderedObject::getImplementation)
+				.map(o -> (T)o)
+				.findAny()
+				.orElseThrow();
+	}
+
+	@Override
+    @SuppressWarnings("unchecked")
+    public <T> List<T> getBeans(Class<T> clazz) {
+		List<OrderedObject> orderedObjects = doGetBeans(clazz);
+
+		return orderedObjects.stream()
+				.map(OrderedObject::getImplementation)
+				.map(o -> (T)o)
+				.collect(Collectors.toList());
+	}
+
+	private List<OrderedObject> doGetBeans(Class<?> clazz) {
+		return doGetBeans(clazz, null);
+	}
+
+	private List<OrderedObject> doGetBeans(Class<?> clazz, String name) {
+		List<ClassInfo> classInfosForReturn = classManager
+				.getClassList()
 				.stream()
 				.filter(ci -> ci.isClassOrInterfaceOf(clazz))
 				.collect(Collectors.toList());
+
+		if (name != null && name.length() > 0) {
+			classInfosForReturn = classInfosForReturn.stream()
+					.filter(c -> c.getBeanName().equals(name))
+					.collect(Collectors.toList());
+		}
 		
 		synchronized (this) {
 			classInfosForReturn.forEach(ci -> {
@@ -58,12 +97,12 @@ public class DefaultBeanProviderImpl implements BeanProvider {
 		var objectsToReturn = classInfosForReturn
 				.stream()
 				.filter(ClassInfo::hasImplementationCreated)
-				.map(ClassInfo::getImplementation)
-				.map(o -> (T)o)
+                .map(ci -> new OrderedObject(ci.getImplementation(), ci.isPrimary()))
 				.collect(Collectors.toList());
 
 		BeanNotFoundException.throwIf(objectsToReturn.isEmpty(), clazz);
 
+		objectsToReturn.sort(new OrderedObject.OrderedObjectComparator());
 		return objectsToReturn;
 	}
 
@@ -73,7 +112,7 @@ public class DefaultBeanProviderImpl implements BeanProvider {
 				this.getClass().getInterfaces(), null);
 		classInfo.setImplementation(this);
 		
-		classInfoMap.putIfAbsent(getClass(), classInfo);
+		classManager.getClassList().add(classInfo);
 	}
 
 	private <T> T createObject(ClassInfo classInfo) {

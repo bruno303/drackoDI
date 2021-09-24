@@ -20,25 +20,49 @@ public class DefaultContainerImpl implements Container {
     }
 
     @Override
+    public synchronized void register(Class<?> object, String beanName, boolean primary) {
+        register(object, Scope.DEFAULT, beanName, primary);
+    }
+
+    @Override
     public synchronized void register(Class<?> object, Scope scope) {
         doRegister(object, scope, null);
     }
 
+    @Override
+    public synchronized void register(Class<?> object, Scope scope, String beanName, boolean primary) {
+        doRegister(object, scope, null, beanName, primary);
+    }
+
+    @Override
+    public synchronized void register(Class<?> object, Scope scope, RegisterFunction registerFunction,
+                                      String beanName, boolean primary) {
+        doRegister(object, scope, registerFunction, beanName, primary);
+    }
+
     private void doRegister(Class<?> clazz, Scope scope, RegisterFunction registerFunction) {
-    	
-    	validateIfNotBuildedYet();
-    	ClassIsInterfaceException.throwIf(clazz.isInterface(), clazz);
-        
-        scopeMapClass.putIfAbsent(clazz, scope, registerFunction);
+        validateBeforeRegister(clazz);
+        scopeMapClass.add(clazz, scope, registerFunction);
+    }
+
+    private void doRegister(Class<?> clazz, Scope scope, RegisterFunction registerFunction,
+                            String beanName, boolean primary) {
+        validateBeforeRegister(clazz);
+        scopeMapClass.add(clazz, scope, registerFunction, beanName, primary);
+    }
+
+    private void validateBeforeRegister(Class<?> clazz) {
+        validateIfNotBuildedYet();
+        ClassIsInterfaceException.throwIf(clazz.isInterface(), clazz);
     }
 
 	@Override
 	public synchronized BeanProvider build() {
 		validateIfNotBuildedYet();
 		builded.set(true);
-        return new DefaultBeanProviderImpl(scopeMapClass.getMap());
+        return new DefaultBeanProviderImpl(scopeMapClass);
     }
-	
+
 	private void validateIfNotBuildedYet() {
 		ContainerAlreadyBuildedException.throwIf(builded.get());
 	}

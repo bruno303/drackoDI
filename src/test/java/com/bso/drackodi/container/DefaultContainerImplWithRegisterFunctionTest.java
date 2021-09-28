@@ -166,4 +166,28 @@ class DefaultContainerImplWithRegisterFunctionTest {
         assertThat(impl3.getDependencyImpl2()).isNotNull().isSameAs(impl2);
         assertThat(impl3.getDependencyInterface()).isNotNull().isExactlyInstanceOf(DummyImplementation.class);
     }
+
+    @Test
+    void testRegisterBeanWithCustomMethodThatUsesAnotherBeanWithNameAndNotPrimary() {
+        container.register(DummyImplementation2.class, beanProvider -> {
+            DummyImplementation impl = beanProvider.getBean(DummyImplementation.class, "xpto");
+            return new DummyImplementation2(impl);
+        });
+
+        container.register(DummyImplementation.class, "xpto", false);
+        container.register(DummyImplementation.class, "xpto2", true);
+
+        BeanProvider beanProvider = container.build();
+
+        DummyImplementation2 impl2 = beanProvider.getBean(DummyImplementation2.class);
+        assertThat(impl2)
+                .isNotNull()
+                .isExactlyInstanceOf(DummyImplementation2.class);
+
+        assertThat(impl2.getDependency())
+                .isNotNull()
+                .isExactlyInstanceOf(DummyImplementation.class)
+                .isEqualTo(beanProvider.getBean(DummyImplementation.class, "xpto"))
+                .isNotEqualTo(beanProvider.getBean(DummyImplementation.class));
+    }
 }

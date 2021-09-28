@@ -9,7 +9,10 @@ import com.bso.drackodi.scope.Scope;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -49,7 +52,7 @@ class DefaultContainerImplTest {
         container.register(DummyImplementation.class, Scope.TRANSIENT, "bean2", false);
         BeanProvider beanProvider = container.build();
 
-        List<DummyInterface> dummys = beanProvider.getBeans(DummyInterface.class);
+        Collection<DummyInterface> dummys = beanProvider.getBeans(DummyInterface.class);
         assertThat(dummys)
                 .isNotNull()
                 .hasSize(2);
@@ -87,7 +90,7 @@ class DefaultContainerImplTest {
         container.register(DummyImplementation2.class, Scope.TRANSIENT);
         BeanProvider beanProvider = container.build();
 
-        List<DummyInterface> dummyInterfaces = beanProvider.getBeans(DummyInterface.class);
+        Collection<DummyInterface> dummyInterfaces = beanProvider.getBeans(DummyInterface.class);
         assertThat(dummyInterfaces)
                 .isNotNull()
                 .hasSize(4);
@@ -112,7 +115,7 @@ class DefaultContainerImplTest {
         container.register(DummyImplementation.class, "xpto3", false);
         BeanProvider beanProvider = container.build();
 
-        List<DummyInterface> implementations = beanProvider.getBeans(DummyInterface.class);
+        Collection<DummyInterface> implementations = beanProvider.getBeans(DummyInterface.class);
         assertThat(implementations)
                 .isNotNull()
                 .hasSize(3);
@@ -126,14 +129,16 @@ class DefaultContainerImplTest {
         container.register(DummyImplementation2.class);
         BeanProvider beanProvider = container.build();
 
-        List<DummyInterface> implementations = beanProvider.getBeans(DummyInterface.class);
+        Collection<DummyInterface> implementations = beanProvider.getBeans(DummyInterface.class);
         assertThat(implementations)
                 .isNotNull()
                 .hasSize(4);
 
-        assertThat(implementations.get(0)).isInstanceOfAny(DummyImplementation.class, DummyImplementation2.class);
-        assertThat(implementations.get(1)).isInstanceOfAny(DummyImplementation.class, DummyImplementation2.class);
-        assertThat(implementations.get(0)).isNotExactlyInstanceOf(implementations.get(1).getClass());
+        List<DummyInterface> implementationsList = new ArrayList<>(implementations);
+
+        assertThat(implementationsList.get(0)).isInstanceOfAny(DummyImplementation.class, DummyImplementation2.class);
+        assertThat(implementationsList.get(1)).isInstanceOfAny(DummyImplementation.class, DummyImplementation2.class);
+        assertThat(implementationsList.get(0)).isNotExactlyInstanceOf(implementationsList.get(1).getClass());
     }
 
     @Test

@@ -7,7 +7,8 @@ import com.bso.drackodi.scope.Scope;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.util.List;
+import java.util.ArrayList;
+import java.util.Collection;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -85,13 +86,15 @@ class DefaultBeanProviderImplTest {
         classManager.add(Dummy.class, Scope.DEFAULT, bp -> new Dummy(false), "xpto2", false);
         beanProvider = new DefaultBeanProviderImpl(classManager);
 
-        List<Dummy> beans = beanProvider.getBeans(Dummy.class);
+        Collection<Dummy> beans = beanProvider.getBeans(Dummy.class);
 
         assertThat(beans).isNotNull().hasSize(2);
 
-        assertThat(beans.get(0).isPrimary()).isNotEqualTo(beans.get(1).isPrimary());
+        var beansList = new ArrayList<>(beans);
 
-        assertThat(beans.get(0)).isNotSameAs(beans.get(1));
+        assertThat(beansList.get(0).isPrimary()).isNotEqualTo(beansList.get(1).isPrimary());
+
+        assertThat(beansList.get(0)).isNotSameAs(beansList.get(1));
     }
 
     @Test

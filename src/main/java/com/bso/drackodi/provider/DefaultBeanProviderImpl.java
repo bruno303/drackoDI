@@ -9,6 +9,7 @@ import com.bso.drackodi.scope.Scope;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -60,7 +61,7 @@ public class DefaultBeanProviderImpl implements BeanProvider {
 
 	@Override
     @SuppressWarnings("unchecked")
-    public <T> List<T> getBeans(Class<T> clazz) {
+    public <T> Collection<T> getBeans(Class<T> clazz) {
 		List<OrderedObject> orderedObjects = doGetBeans(clazz);
 
 		return orderedObjects.stream()

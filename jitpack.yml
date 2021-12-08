@@ -2,8 +2,8 @@ jdk:
   - openjdk11
 before_install:
    - echo "Installing java 11"
-   - sdk install java 11.0.10.hs
-   - sdk use java 11.0.10.hs
+   - sdk install java 11.0.11.hs
+   - sdk use java 11.0.11.hs
 install:
    - echo "Running a custom install command"
    - ./gradlew clean install -x test -x check
